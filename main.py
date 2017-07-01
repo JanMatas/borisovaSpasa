@@ -23,7 +23,8 @@ class Line:
         self.B = Point(float(x2), float(y2))
     
     def equation(self):
-        slope = (self.B.y - self.A.y) / float(self.B.x - self.A.x)
+        denominator = float(self.B.x - self.A.x)
+        slope = (self.B.y - self.A.y) / denominator if denominator else 0.0001
         y_intersect = - int(slope * self.A.x) + self.A.y
         return slope, y_intersect
 
@@ -61,16 +62,13 @@ def find_line_intersections(lines):
             points.append(line1.intersection(line2))
     return points
             
-
-def main2():
-    fn = sys.argv[1]
-    img = cv2.imread(fn)
+def process_img(img):
     crop = img[int(len(img)*0.3):len(img),0: len(img[0]) ]
     hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
 
     # define range of white color in HSV
     # change it according to your need !
-    lower_white = np.array([0,0,200], dtype=np.uint8)
+    lower_white = np.array([0,0,180], dtype=np.uint8)
     upper_white = np.array([255,255,255], dtype=np.uint8)
 
     # Threshold the HSV image to get only white colors
@@ -80,13 +78,39 @@ def main2():
     
     
     houghLines = cv2.HoughLinesP(mask,rho = 5,theta = 1*np.pi/90,threshold = 100,minLineLength = 100,maxLineGap = 5)
-    lines = map(lambda l: Line(*l[0]), houghLines)
+    
+    lines = map(lambda l: Line(*l[0]), houghLines if houghLines is not None else [])
     map(lambda l: l.draw_line(crop), lines)
+    return crop
+    
     points = find_line_intersections(lines)
     print points
     map(lambda p: p.draw(crop), points)
-            
-    cv2.imshow('lines',crop)
+    return crop
+
+
+def main1():
+
+    fn = sys.argv[1]
+    cap = cv2.VideoCapture(fn)
+    #fgbg = cv2.createBackgroundSubtractorMOG2()
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+    fgbg = cv2.createBackgroundSubtractorMOG2()
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+        #res = process_img(frame)
+        fgmask = fgbg.apply(frame)
+        opening = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
+        cv2.imshow('lines',opening)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+def main2():
+    fn = sys.argv[1]
+    img = cv2.imread(fn)
+    res = process_img(img)
+    cv2.imshow('lines',res)
     #edges = cv2.Canny(smooth,100,150,apertureSize = 3)
 
 
@@ -96,4 +120,4 @@ def main2():
 # Standard boilerplate to call the main() function to begin
 # the program.
 if __name__ == '__main__':
-    main2()
+    main1()
